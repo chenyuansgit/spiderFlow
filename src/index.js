@@ -14,6 +14,11 @@ class SpiderFlow {
         this.pages = {};
     }
 
+    // 页面中是否存在元素
+    async existElement(page, selector) {
+        const element = await page.$(selector);
+        return element;
+    }
     // 销毁浏览器
     resetBrowser() {
         console.log('browser disconnected');
@@ -64,6 +69,48 @@ class SpiderFlow {
         const getCookies = await page._client.send('Network.getAllCookies') || {};
         this.data.cookies = getCookies.cookies || [];
         this.data.pageSymbol = pageSymbol;
+
+        // 执行回调函数
+        await callback(this);
+
+        // 关闭页面
+        if (closePage) {
+            await page.close();
+            this.pages[pageSymbol] = null;
+        }
+    }
+
+    // 输入
+    async input(config, callback) {
+        let {
+            pageSymbol = Symbol('page'), // 要使用的页面
+            sleepTime = 200, // 毫秒
+            cookies = [],     // cookie
+            inputs = [],      // 要输入的内容
+            closePage = false  // 操作完成后是否关闭页面
+        } = config;
+
+        // 获取页面
+        let page = this.pages[pageSymbol];
+        if (!page) {
+            throw new Error('页面不存在');
+        }
+        await sleep(sleepTime);
+
+        // 设置input的值
+        for (let i = 0; i< inputs.length; i++) {
+            const {
+                selector,
+                value
+            } = inputs[i];
+            // 查看元素是否存在
+            const element = this.existElement(page, selector);
+            if(!element) {
+                throw new Error('元素不存在');
+            }
+            // 输入值
+            await page.type(selector, value, { delay: 100 });
+        }
 
         // 执行回调函数
         await callback(this);

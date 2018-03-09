@@ -26,8 +26,8 @@ async function test() {
          console.log("res2:", pageSymbol);
      })*/
 
-
-    let result = await t.step({
+    // 打开页面
+    let result1 = await t.step({
         operation: 'openPage',
         url: 'http://www.baidu.com',
         closePage: false
@@ -45,7 +45,23 @@ async function test() {
         //console.log('cookies:', cookies);
     });
 
-    console.log("result:", result);
+    console.log("result1:", result1);
+
+    // 输入文本框
+    let result2 = await t.step({
+        operation: 'input',
+        pageSymbol: result1.pageSymbol,
+        inputs: [{
+            selector: '#kw',
+            value: 'test'
+        }],
+        closePage: false
+    }, async function (ctx) {
+
+
+    });
+
+    console.log("result2:", result2);
 }
 
 test();
