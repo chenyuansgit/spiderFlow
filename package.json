@@ -1,0 +1,36 @@
+{
+  "name": "spiderflow",
+  "version": "1.0.0",
+  "description": "flow the spider ",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon -w ./src -w ./src/index.js --exec babel-node ./src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chenyuansgit/spiderFlow.git"
+  },
+  "keywords": [
+    "spider",
+    "flow",
+    "puppeteer"
+  ],
+  "author": "chenyuan",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/chenyuansgit/spiderFlow/issues"
+  },
+  "homepage": "https://github.com/chenyuansgit/spiderFlow#readme",
+  "dependencies": {
+    "babel-core": "^6.26.0",
+    "babel-preset-stage-0": "^6.24.1",
+    "puppeteer": "^1.1.1"
+  },
+  "devDependencies": {
+    "babel-preset-env": "^1.6.1"
+  }
+}
