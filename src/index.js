@@ -16,7 +16,10 @@ class SpiderFlow {
 
     // 页面中是否存在元素
     async existElement(page, selector) {
-        const element = await page.$(selector);
+        let element = await page.$(selector);
+        if (element.length >= 0) {
+            element = element[0];
+        }
         return element;
     }
 
@@ -41,8 +44,7 @@ class SpiderFlow {
     async openPage(page, config) {
         let {
             url = '', // 要打开的链接
-            pageSymbol = Symbol('page'), // 要使用的页面
-            closePage = false  // 操作完成后是否关闭页面
+            pageSymbol = Symbol('page') // 要使用的页面
         } = config;
 
         await page.goto(url);
@@ -155,7 +157,7 @@ class SpiderFlow {
             cookies = [],     // cookie
             operation, // 要进行的操作 ['openPage', 'input', 'click']
             confirms, // 结果确认
-            closePage = false  // 操作完成后是否关闭页面
+            closePage = true  // 操作完成后是否关闭页面
         } = config;
 
         if (!this[operation]) {
@@ -172,7 +174,7 @@ class SpiderFlow {
         } else if (this.pages[pageSymbol]) {
             page = this.pages[pageSymbol];
         } else {
-            throw new Error('页面不存在');
+            throw new Error('操作页面不存在');
         }
         await sleep(sleepTime);
 
@@ -210,7 +212,7 @@ class SpiderFlow {
 
         // 执行回调函数
         await sleep(sleepTime);
-        await callback(this);
+        callback && await callback(this);
 
         // 结果确认
         await sleep(sleepTime);
