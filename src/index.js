@@ -136,14 +136,18 @@ class SpiderFlow {
                 throw new Error('元素不存在');
             }
             // 查看元素的值是否是期望值
-            const value = await page.evaluate((selector) => {
+            /*const value = await page.evaluate((selector) => {
                 const node = document.querySelector(selector);
                 console.log("node:", node);
                 if(node) {
                     return node.innerHTML || (node[0] && node[0].innerHTML);
                 }
                 return '';
-            }, selector);
+            }, selector);*/
+
+            const value = await page.evaluate(element => element.innerHTML, element);
+
+            //console.log("value:", value);
 
             if (expectValues.indexOf(value) === -1) {
                 console.log("结果确认失败:", selector, expectValues, value);
