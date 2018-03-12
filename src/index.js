@@ -44,14 +44,17 @@ class SpiderFlow {
     async openPage(page, config) {
         let {
             url = '', // 要打开的链接
-            pageSymbol = Symbol('page') // 要使用的页面
+            pageSymbol = Symbol('page'), // 要使用的页面
+            getCookies = false  // 是否获取cookie
         } = config;
 
         await page.goto(url);
 
         // 获取cookie
-        const getCookies = await page._client.send('Network.getAllCookies') || {};
-        this.data.cookies = getCookies.cookies || [];
+        if(getCookies) {
+            const getCookies = await page._client.send('Network.getAllCookies') || {};
+            this.data.cookies = getCookies.cookies || [];
+        }
         this.data.pageSymbol = pageSymbol;
     }
 
@@ -70,7 +73,7 @@ class SpiderFlow {
                 value
             } = inputs[i];
             // 查看元素是否存在
-            const element = this.existElement(page, selector);
+            const element = await this.existElement(page, selector);
             if (!element) {
                 throw new Error('元素不存在');
             }
@@ -93,7 +96,7 @@ class SpiderFlow {
                 selector
             } = clicks[i];
             // 查看元素是否存在
-            const element = this.existElement(page, selector);
+            const element = await this.existElement(page, selector);
             if (!element) {
                 throw new Error('元素不存在');
             }
@@ -127,17 +130,20 @@ class SpiderFlow {
         // 获取selector的值
         for (let selector in conditions) {
             const expectValues = conditions[selector] || [];
-
             // 查看元素是否存在
-            const element = this.existElement(page, selector);
+            const element = await this.existElement(page, selector);
             if (!element) {
                 throw new Error('元素不存在');
             }
-
             // 查看元素的值是否是期望值
-            const value = await page.evaluate(() => {
-                return $(this).find(selector).text();
-            });
+            const value = await page.evaluate((selector) => {
+                const node = document.querySelector(selector);
+                console.log("node:", node);
+                if(node) {
+                    return node.innerHTML || (node[0] && node[0].innerHTML);
+                }
+                return '';
+            }, selector);
 
             if (expectValues.indexOf(value) === -1) {
                 console.log("结果确认失败:", selector, expectValues, value);

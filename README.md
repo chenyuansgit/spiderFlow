@@ -21,6 +21,7 @@ PUPPETEER_DOWNLOAD_HOST=https://storage.googleapis.com.cnpmjs.org npm i puppetee
     }], 
     confirms: {
        'selector1': ['value1', 'value2'] 
-    }
+    },
+    getCookie: false  // 是否获取页面cookie
 }
  ```

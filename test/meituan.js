@@ -12,6 +12,9 @@ let cfg = [{
     clicks: [{  //  要点击的内容
         selector: '[gaevent="imt/login/quickBuy/"]'
     }],
+    confirms: {
+        '[type="submit"]': ['登录']
+    },
     closePage: false
 }, {
     operation: 'input',
