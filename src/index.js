@@ -19,6 +19,7 @@ class SpiderFlow {
         const element = await page.$(selector);
         return element;
     }
+
     // 销毁浏览器
     resetBrowser() {
         console.log('browser disconnected');
@@ -37,21 +38,136 @@ class SpiderFlow {
     }
 
     // 打开页面
-    async openPage(config, callback) {
+    async openPage(page, config) {
         let {
             url = '', // 要打开的链接
             pageSymbol = Symbol('page'), // 要使用的页面
-            sleepTime = 200, // 毫秒
-            cookies = [],     // cookie
             closePage = false  // 操作完成后是否关闭页面
         } = config;
 
+        await page.goto(url);
+
+        // 获取cookie
+        const getCookies = await page._client.send('Network.getAllCookies') || {};
+        this.data.cookies = getCookies.cookies || [];
+        this.data.pageSymbol = pageSymbol;
+    }
+
+    // 输入
+    async input(page, config) {
+        let {
+            sleepTime = 200, // 毫秒
+            inputs = []      // 要输入的内容
+
+        } = config;
+
+        // 设置input的值
+        for (let i = 0; i < inputs.length; i++) {
+            const {
+                selector,
+                value
+            } = inputs[i];
+            // 查看元素是否存在
+            const element = this.existElement(page, selector);
+            if (!element) {
+                throw new Error('元素不存在');
+            }
+            // 输入值
+            await page.type(selector, value, {delay: 100});
+            await sleep(sleepTime);
+        }
+    }
+
+    // 点击
+    async click(page, config) {
+        let {
+            sleepTime = 200, // 毫秒
+            clicks = []     // 要输入的内容
+        } = config;
+
+        // 设置input的值
+        for (let i = 0; i < clicks.length; i++) {
+            const {
+                selector
+            } = clicks[i];
+            // 查看元素是否存在
+            const element = this.existElement(page, selector);
+            if (!element) {
+                throw new Error('元素不存在');
+            }
+            // 点击元素
+            await page.click(selector);
+            await sleep(sleepTime);
+        }
+    }
+
+    // 拖动
+    async slide(page, config) {
+        let {
+            selector = '', // 要拖拽的元素
+            points = []     // 拖拽轨迹
+        } = config;
+
+        // 查看元素是否存在
+        const element = this.existElement(page, selector);
+        if (!element) {
+            throw new Error('元素不存在');
+        }
+
+        // 拖拽元素
+        //const e = await page.$(selector);
+        //const box = await e.boundingBox();
+        await page.touchscreen.swipePoints(points[0].toX, points[0].toY, points);
+    }
+
+    // 确认操作结果
+    async confirm(page, conditions) {
+        // 获取selector的值
+        for (let selector in conditions) {
+            const expectValues = conditions[selector] || [];
+
+            // 查看元素是否存在
+            const element = this.existElement(page, selector);
+            if (!element) {
+                throw new Error('元素不存在');
+            }
+
+            // 查看元素的值是否是期望值
+            const value = await page.evaluate(() => {
+                return $(this).find(selector).text();
+            });
+
+            if (expectValues.indexOf(value) === -1) {
+                console.log("结果确认失败:", selector, expectValues, value);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // 执行
+    async step(config, callback) {
+        let {
+            url,
+            pageSymbol = Symbol('page'), // 要使用的页面
+            sleepTime = 200, // 毫秒
+            cookies = [],     // cookie
+            operation, // 要进行的操作 ['openPage', 'input', 'click']
+            confirms, // 结果确认
+            closePage = false  // 操作完成后是否关闭页面
+        } = config;
+
+        if (!this[operation]) {
+            throw new Error('操作函数不存在');
+        }
+
+        // 获取page
         let browser = this.browser;
         let page = null;
         // 打开页面
         if (url) {
             page = await browser.newPage();
-            await page.goto(url);
             this.pages[pageSymbol] = page;
         } else if (this.pages[pageSymbol]) {
             page = this.pages[pageSymbol];
@@ -60,18 +176,22 @@ class SpiderFlow {
         }
         await sleep(sleepTime);
 
+        // 为page设置cookie
+        if (cookies.length > 0) {
+            await page.setCookie(...cookies);
+        }
         // 为page添加函数
         page.touchscreen.swipePoints = async function (x, y, points) {
             await this._client.send('Input.dispatchTouchEvent', {
                 type: 'touchStart',
-                touchPoints: [{ x: Math.round(x), y: Math.round(y) }],
+                touchPoints: [{x: Math.round(x), y: Math.round(y)}],
                 modifiers: this._keyboard._modifiers
             });
 
             for (let i = 0; i < points.length; i++) {
                 await this._client.send('Input.dispatchTouchEvent', {
                     type: 'touchMove',
-                    touchPoints: [{ x: points[i].toX, y: points[i].toY }],
+                    touchPoints: [{x: points[i].toX, y: points[i].toY}],
                     modifiers: this._keyboard._modifiers
                 });
                 await sleep(points[i].timespan);
@@ -85,165 +205,30 @@ class SpiderFlow {
             });
         }.bind(page.touchscreen);
 
-        // 设置cookie
-        if (cookies.length > 0) {
-            await page.setCookie(...cookies);
-        }
-
-        // 获取cookie
-        const getCookies = await page._client.send('Network.getAllCookies') || {};
-        this.data.cookies = getCookies.cookies || [];
-        this.data.pageSymbol = pageSymbol;
+        // 执行要进行的操作
+        await this[operation](page, config, callback);
 
         // 执行回调函数
-        await callback(this);
-
-        // 关闭页面
-        if (closePage) {
-            await page.close();
-            this.pages[pageSymbol] = null;
-        }
-    }
-
-    // 输入
-    async input(config, callback) {
-        let {
-            pageSymbol = Symbol('page'), // 要使用的页面
-            sleepTime = 200, // 毫秒
-            cookies = [],     // cookie
-            inputs = [],      // 要输入的内容
-            closePage = false  // 操作完成后是否关闭页面
-        } = config;
-
-        // 获取页面
-        let page = this.pages[pageSymbol];
-        if (!page) {
-            throw new Error('页面不存在');
-        }
         await sleep(sleepTime);
-
-        // 设置input的值
-        for (let i = 0; i< inputs.length; i++) {
-            const {
-                selector,
-                value
-            } = inputs[i];
-            // 查看元素是否存在
-            const element = this.existElement(page, selector);
-            if(!element) {
-                throw new Error('元素不存在');
-            }
-            // 输入值
-            await page.type(selector, value, { delay: 100 });
-        }
-
-        // 执行回调函数
         await callback(this);
 
-        // 关闭页面
-        if (closePage) {
-            await page.close();
-            this.pages[pageSymbol] = null;
-        }
-    }
-
-    // 点击
-    async click(config, callback) {
-        let {
-            pageSymbol = Symbol('page'), // 要使用的页面
-            sleepTime = 200, // 毫秒
-            cookies = [],     // cookie
-            clicks = [],      // 要输入的内容
-            closePage = false  // 操作完成后是否关闭页面
-        } = config;
-
-        // 获取页面
-        let page = this.pages[pageSymbol];
-        if (!page) {
-            throw new Error('页面不存在');
-        }
+        // 结果确认
         await sleep(sleepTime);
-
-        // 设置input的值
-        for (let i = 0; i< clicks.length; i++) {
-            const {
-                selector
-            } = clicks[i];
-            // 查看元素是否存在
-            const element = this.existElement(page, selector);
-            if(!element) {
-                throw new Error('元素不存在');
-            }
-            // 点击元素
-            await page.click(selector);
+        if (confirms) {
+            let confirmResult = await this.confirm(page, confirms);
+            this.data.confirmResult = confirmResult;
         }
-
-        // 执行回调函数
-        await callback(this);
-
         // 关闭页面
         if (closePage) {
             await page.close();
             this.pages[pageSymbol] = null;
         }
-    }
-
-    // 拖动
-    async slide(config, callback) {
-        let {
-            pageSymbol = Symbol('page'), // 要使用的页面
-            sleepTime = 200, // 毫秒
-            selector = '', // 要拖拽的元素
-            points = [],     // 拖拽轨迹
-            closePage = false  // 操作完成后是否关闭页面
-        } = config;
-
-        // 获取页面
-        let page = this.pages[pageSymbol];
-        if (!page) {
-            throw new Error('页面不存在');
-        }
-        await sleep(sleepTime);
-        // 查看元素是否存在
-        const element = this.existElement(page, selector);
-        if(!element) {
-            throw new Error('元素不存在');
-        }
-
-        // 拖拽元素
-        //const e = await page.$(selector);
-        //const box = await e.boundingBox();
-        await page.touchscreen.swipePoints(points[0].toX, points[0].toY, points);
-
-
-        // 执行回调函数
-        await callback(this);
-
-        // 关闭页面
-        if (closePage) {
-            await page.close();
-            this.pages[pageSymbol] = null;
-        }
-    }
-
-    // 执行
-    async step(config, callback) {
-        let {
-            operation // 要进行的操作 ['openPage', 'input', 'click']
-        } = config;
-
-        if (!operation) {
-            throw new Error('操作不存在');
-        }
-        await this[operation](config, callback);
-        //return new Promise(resolve => resolve(this));
         return this.data;
     }
 
     // 结束
     stop() {
         this.resetBrowser();
-
     }
 }
 
