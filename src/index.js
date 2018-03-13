@@ -1,6 +1,11 @@
 import puppeteer from 'puppeteer';
+import moment from 'moment';
+import mkdirp from 'mkdirp';
+import util from 'util';
+import path from 'path';
 
 const sleep = time => new Promise(resolve => setTimeout(resolve, time));
+const mkdirPromise = util.promisify(mkdirp);
 
 class SpiderFlow {
     constructor(debug) {
@@ -12,6 +17,16 @@ class SpiderFlow {
         this.browser = null;
         // 页面
         this.pages = {};
+    }
+
+    // 错误处理
+    async handleError(page, error){
+        if (page) {
+            const dirPath = path.join(__dirname, '../', `/static/errimg/${moment().format('YYYYMMDD')}`);
+            console.log
+            await mkdirPromise(dirPath);
+            await page.screenshot({path: `${dirPath}/${Date.now() + error.message}.png`});
+        }
     }
 
     // 页面中是否存在元素
@@ -51,7 +66,7 @@ class SpiderFlow {
         await page.goto(url);
 
         // 获取cookie
-        if(getCookies) {
+        if (getCookies) {
             const getCookies = await page._client.send('Network.getAllCookies') || {};
             this.data.cookies = getCookies.cookies || [];
         }
@@ -177,65 +192,73 @@ class SpiderFlow {
         // 获取page
         let browser = this.browser;
         let page = null;
-        // 打开页面
-        if (url) {
-            page = await browser.newPage();
-            this.pages[pageSymbol] = page;
-        } else if (this.pages[pageSymbol]) {
-            page = this.pages[pageSymbol];
-        } else {
-            throw new Error('操作页面不存在');
-        }
-        await sleep(sleepTime);
 
-        // 为page设置cookie
-        if (cookies.length > 0) {
-            await page.setCookie(...cookies);
-        }
-        // 为page添加函数
-        page.touchscreen.swipePoints = async function (x, y, points) {
-            await this._client.send('Input.dispatchTouchEvent', {
-                type: 'touchStart',
-                touchPoints: [{x: Math.round(x), y: Math.round(y)}],
-                modifiers: this._keyboard._modifiers
-            });
+       try {
+           // 打开页面
+           if (url) {
+               page = await browser.newPage();
+               this.pages[pageSymbol] = page;
+           } else if (this.pages[pageSymbol]) {
+               page = this.pages[pageSymbol];
+           } else {
+               throw new Error('操作页面不存在');
+           }
+           await sleep(sleepTime);
 
-            for (let i = 0; i < points.length; i++) {
-                await this._client.send('Input.dispatchTouchEvent', {
-                    type: 'touchMove',
-                    touchPoints: [{x: points[i].toX, y: points[i].toY}],
-                    modifiers: this._keyboard._modifiers
-                });
-                await sleep(points[i].timespan);
-            }
-            await sleep(50);
+           // 为page设置cookie
+           if (cookies.length > 0) {
+               await page.setCookie(...cookies);
+           }
+           // 为page添加函数
+           page.touchscreen.swipePoints = async function (x, y, points) {
+               await this._client.send('Input.dispatchTouchEvent', {
+                   type: 'touchStart',
+                   touchPoints: [{x: Math.round(x), y: Math.round(y)}],
+                   modifiers: this._keyboard._modifiers
+               });
 
-            await this._client.send('Input.dispatchTouchEvent', {
-                type: 'touchEnd',
-                touchPoints: [],
-                modifiers: this._keyboard._modifiers
-            });
-        }.bind(page.touchscreen);
+               for (let i = 0; i < points.length; i++) {
+                   await this._client.send('Input.dispatchTouchEvent', {
+                       type: 'touchMove',
+                       touchPoints: [{x: points[i].toX, y: points[i].toY}],
+                       modifiers: this._keyboard._modifiers
+                   });
+                   await sleep(points[i].timespan);
+               }
+               await sleep(50);
 
-        // 执行要进行的操作
-        await this[operation](page, config, callback);
+               await this._client.send('Input.dispatchTouchEvent', {
+                   type: 'touchEnd',
+                   touchPoints: [],
+                   modifiers: this._keyboard._modifiers
+               });
+           }.bind(page.touchscreen);
 
-        // 执行回调函数
-        await sleep(sleepTime);
-        callback && await callback(this);
+           // 执行要进行的操作
+           await this[operation](page, config, callback);
 
-        // 结果确认
-        await sleep(sleepTime);
-        if (confirms) {
-            let confirmResult = await this.confirm(page, confirms);
-            this.data.confirmResult = confirmResult;
-        }
-        // 关闭页面
-        if (closePage) {
-            await page.close();
-            this.pages[pageSymbol] = null;
-        }
-        return this.data;
+           // 执行回调函数
+           await sleep(sleepTime);
+           callback && await callback(this);
+
+           // 结果确认
+           await sleep(sleepTime);
+           if (confirms) {
+               let confirmResult = await this.confirm(page, confirms);
+               if(!confirmResult) {
+                   throw new Error('结果和预期不符');
+               }
+           }
+           // 关闭页面
+           if (closePage) {
+               await page.close();
+               this.pages[pageSymbol] = null;
+           }
+           return this.data;
+       } catch (e) {
+           this.handleError(page, e);
+           throw new Error(e.message);
+       }
     }
 
     // 结束
