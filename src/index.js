@@ -39,7 +39,7 @@ class SpiderFlow {
     }
 
     // 销毁浏览器
-    resetBrowser() {
+    async resetBrowser() {
         console.log('browser disconnected');
         this.browser = null;
         this.pages = {};
@@ -124,15 +124,15 @@ class SpiderFlow {
     // 拖动
     async slide(page, config) {
         let {
-            selector = '', // 要拖拽的元素
+            //selector = '', // 要拖拽的元素
             points = []     // 拖拽轨迹
         } = config;
 
-        // 查看元素是否存在
+        /*// 查看元素是否存在
         const element = this.existElement(page, selector);
         if (!element) {
             throw new Error('元素不存在');
-        }
+        }*/
 
         // 拖拽元素
         //const e = await page.$(selector);
@@ -262,8 +262,10 @@ class SpiderFlow {
     }
 
     // 结束
-    stop() {
-        this.resetBrowser();
+    async stop() {
+        if(this.browser){
+            await this.browser.close();
+        }
     }
 }
 
