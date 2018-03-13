@@ -4,12 +4,16 @@ let t = new SpiderFlow();
 
 
 let cfg = [{
-    url: 'http://chenyuan123.com.cn',
+    url: 'http://chenyuan.com.cn',
     operation: 'openPage',
-    closePage: false,
-    confirms: {
-        '[type="submit"]': ['登录']
-    }
+    closePage: false
+}, {
+    operation: 'input',
+    inputs: [{
+        selector: '#login-mobile',
+        value: '188******'
+    }],
+    closePage: false
 }];
 
 async function test() {
