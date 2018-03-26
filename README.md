@@ -44,8 +44,8 @@ config格式：
       toY,
       timespan 
     }],
-    getCookie: false,  // 是否获取页面cookie
-    cookies: []        // 要设置的页面cookie,，默认不传
+    getCookies: false,  // 是否获取页面cookie
+    callback: null     // 要执行的回调函数
 }
 
 返回值：
@@ -58,4 +58,11 @@ config格式：
  ### 4. 关闭浏览器
  ```
  await t.stop();
+```
+
+
+```
+todo: 
+1. 回调函数的调用
+2. 错误图片的打印
 ```

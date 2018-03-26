@@ -4,7 +4,7 @@ let t = new SpiderFlow();
 
 
 let cfg = [{
-    url: 'http://chenyuan.com.cn',
+    url: 'https://google.com',
     operation: 'openPage',
     closePage: false,
     confirms: {

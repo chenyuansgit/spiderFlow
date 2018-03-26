@@ -3,6 +3,7 @@ import moment from 'moment';
 import mkdirp from 'mkdirp';
 import util from 'util';
 import path from 'path';
+import Promise from 'bluebird';
 
 const sleep = time => new Promise(resolve => setTimeout(resolve, time));
 const mkdirPromise = util.promisify(mkdirp);
@@ -25,7 +26,7 @@ class SpiderFlow {
             const dirPath = path.join(__dirname, '../', `/static/errimg/${moment().format('YYYYMMDD')}`);
             console.log
             await mkdirPromise(dirPath);
-            await page.screenshot({path: `${dirPath}/${moment().format('hh-mm-ss') + error.message}.png`});
+            await page.screenshot({path: `${dirPath}/${this.data.pageSeq +  moment().format('hh-mm-ss')}.png`});
         }
     }
 
@@ -59,9 +60,15 @@ class SpiderFlow {
     async openPage(page, config) {
         let {
             url = '', // 要打开的链接
-            pageSymbol = Symbol('page'), // 要使用的页面
+            pageSeq, // 要使用的页面
             getCookies = false  // 是否获取cookie
         } = config;
+
+        if(!pageSeq) {
+            const timer = new Date();
+            const startTime = (timer).getTime();
+            pageSeq = Math.ceil(Math.random() * 100) + startTime.toString(32).toUpperCase();
+        }
 
         await page.goto(url);
 
@@ -70,7 +77,8 @@ class SpiderFlow {
             const getCookies = await page._client.send('Network.getAllCookies') || {};
             this.data.cookies = getCookies.cookies || [];
         }
-        this.data.pageSymbol = pageSymbol;
+        this.data.pageSeq = pageSeq;
+        this.pages[pageSeq] = page;
     }
 
     // 输入
@@ -174,15 +182,16 @@ class SpiderFlow {
     }
 
     // 执行
-    async step(config, callback) {
+    async step(config) {
         let {
             url,
-            pageSymbol = Symbol('page'), // 要使用的页面
+            pageSeq, // 要使用的页面
             sleepTime = 200, // 毫秒
             cookies = [],     // cookie
             operation, // 要进行的操作 ['openPage', 'input', 'click']
             confirms, // 结果确认
-            closePage = true  // 操作完成后是否关闭页面
+            closePage = true,  // 操作完成后是否关闭页面
+            callback = null // 回调函数
         } = config;
 
         if (!this[operation]) {
@@ -197,9 +206,11 @@ class SpiderFlow {
             // 打开页面
             if (url) {
                 page = await browser.newPage();
-                this.pages[pageSymbol] = page;
-            } else if (this.pages[pageSymbol]) {
-                page = this.pages[pageSymbol];
+            } else if (pageSeq && this.pages[pageSeq]) {
+                page = this.pages[pageSeq];
+            } else if(this.data['pageSeq']) {
+                pageSeq = this.data['pageSeq'];
+                page = this.pages[pageSeq];
             } else {
                 throw new Error('操作页面不存在');
             }
@@ -252,13 +263,25 @@ class SpiderFlow {
             // 关闭页面
             if (closePage) {
                 await page.close();
-                this.pages[pageSymbol] = null;
+                this.pages[pageSeq] = null;
             }
             return this.data;
         } catch (e) {
             this.handleError(page, e);
             throw new Error(e.message);
         }
+    }
+
+    async run(cfgs = []) {
+        let self = this;
+
+        return Promise.reduce(cfgs, async function(result, cfg) {
+            let res = await self.step(cfg);
+            return Object.assign(res, result);
+        }, {}).then(function(totalResult) {
+            //console.log('totalResult:', totalResult);
+            return totalResult;
+        });
     }
 
     // 结束
