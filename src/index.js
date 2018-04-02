@@ -9,9 +9,7 @@ const sleep = time => new Promise(resolve => setTimeout(resolve, time));
 const mkdirPromise = util.promisify(mkdirp);
 
 class SpiderFlow {
-    constructor(debug) {
-        this.isDebug = debug === '' ? 1 : 0;
-
+    constructor() {
         // 要传递的数据
         this.data = {};
         // 浏览器对象
@@ -21,12 +19,11 @@ class SpiderFlow {
     }
 
     // 错误处理
-    async handleError(page, error) {
+    async handleError(page) {
         if (page) {
-            const dirPath = path.join(__dirname, '../', `/static/errimg/${moment().format('YYYYMMDD')}`);
-            console.log
+            const dirPath = path.join(__dirname, '../../../', `/static/errimg/${moment().format('YYYYMMDD')}`);
             await mkdirPromise(dirPath);
-            await page.screenshot({path: `${dirPath}/${this.data.pageSeq +  moment().format('hh-mm-ss')}.png`});
+            await page.screenshot({path: `${dirPath}/${this.data.pageSeq + '-' + moment().format('hhmmss')}.png`});
         }
     }
 
@@ -64,7 +61,7 @@ class SpiderFlow {
             getCookies = false  // 是否获取cookie
         } = config;
 
-        if(!pageSeq) {
+        if (!pageSeq) {
             const timer = new Date();
             const startTime = (timer).getTime();
             pageSeq = Math.ceil(Math.random() * 100) + startTime.toString(32).toUpperCase();
@@ -151,7 +148,7 @@ class SpiderFlow {
     // 确认操作结果
     async confirm(page, conditions) {
         // 获取selector的值
-        for (let selector in conditions) {
+        for (const selector in conditions) {
             const expectValues = conditions[selector] || [];
             // 查看元素是否存在
             const element = await this.existElement(page, selector);
@@ -191,7 +188,8 @@ class SpiderFlow {
             operation, // 要进行的操作 ['openPage', 'input', 'click']
             confirms, // 结果确认
             closePage = true,  // 操作完成后是否关闭页面
-            callback = null // 回调函数
+            clearCookie = false, // 操作完成后是否清除cookie
+            callback = null, // 回调函数
         } = config;
 
         if (!this[operation]) {
@@ -208,7 +206,7 @@ class SpiderFlow {
                 page = await browser.newPage();
             } else if (pageSeq && this.pages[pageSeq]) {
                 page = this.pages[pageSeq];
-            } else if(this.data['pageSeq']) {
+            } else if (this.data['pageSeq']) {
                 pageSeq = this.data['pageSeq'];
                 page = this.pages[pageSeq];
             } else {
@@ -248,6 +246,11 @@ class SpiderFlow {
             // 执行要进行的操作
             await this[operation](page, config, callback);
 
+            // 清空cookie
+            if (this.data.cookies && this.data.cookies.length > 0 && clearCookie) {
+                const cookies = this.data.cookies;
+                await page.deleteCookie(...cookies);
+            }
             // 执行回调函数
             await sleep(sleepTime);
             callback && await callback(this);
@@ -267,7 +270,7 @@ class SpiderFlow {
             }
             return this.data;
         } catch (e) {
-            this.handleError(page, e);
+            this.handleError(page);
             throw new Error(e.message);
         }
     }
@@ -275,10 +278,10 @@ class SpiderFlow {
     async run(cfgs = []) {
         let self = this;
 
-        return Promise.reduce(cfgs, async function(result, cfg) {
+        return Promise.reduce(cfgs, async function (result, cfg) {
             let res = await self.step(cfg);
             return Object.assign(res, result);
-        }, {}).then(function(totalResult) {
+        }, {}).then(function (totalResult) {
             //console.log('totalResult:', totalResult);
             return totalResult;
         });
@@ -286,7 +289,7 @@ class SpiderFlow {
 
     // 结束
     async stop() {
-        if(this.browser){
+        if (this.browser) {
             await this.browser.close();
         }
     }

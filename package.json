@@ -29,6 +29,7 @@
     "babel-core": "^6.26.0",
     "babel-preset-stage-0": "^6.24.1",
     "bluebird": "^3.5.1",
+    "jsdom": "^11.7.0",
     "moment": "^2.21.0",
     "puppeteer": "^1.1.1"
   },
