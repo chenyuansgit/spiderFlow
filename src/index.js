@@ -68,11 +68,11 @@ class SpiderFlow {
             pageSeq = Math.ceil(Math.random() * 100) + startTime.toString(32).toUpperCase();
         }
 
-        await page.goto(url);
         // 设置userAgent
         if(userAgent) {
             await page.setUserAgent(userAgent);
         }
+        await page.goto(url);
         // 获取cookie
         if (getCookies) {
             const getCookies = await page._client.send('Network.getAllCookies') || {};
