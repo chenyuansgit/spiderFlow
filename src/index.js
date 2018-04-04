@@ -57,6 +57,7 @@ class SpiderFlow {
     async openPage(page, config) {
         let {
             url = '', // 要打开的链接
+            userAgent,
             pageSeq, // 要使用的页面
             getCookies = false  // 是否获取cookie
         } = config;
@@ -68,11 +69,16 @@ class SpiderFlow {
         }
 
         await page.goto(url);
-
+        // 设置userAgent
+        if(userAgent) {
+            await page.setUserAgent(userAgent);
+        }
         // 获取cookie
         if (getCookies) {
             const getCookies = await page._client.send('Network.getAllCookies') || {};
             this.data.cookies = getCookies.cookies || [];
+            // 获取userAgent
+            this.data.userAgent = await this.browser.userAgent();
         }
         this.data.pageSeq = pageSeq;
         this.pages[pageSeq] = page;

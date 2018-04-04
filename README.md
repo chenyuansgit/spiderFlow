@@ -26,8 +26,8 @@ let data = await t.step(config);
 config格式：
 {
     url: '', // 页面url
+    userAgent: '',
     pageSymbol: '', // 页面id
-    sleepTime: '', // 等待时间
     cookies: [], //页面cookie, 非必须
     operation, // 要进行的操作 ['openPage', 'input', 'click', 'slide']
     inputs: [{   // 要输入的内容
@@ -46,6 +46,7 @@ config格式：
       timespan 
     }],
     getCookies: false,  // 是否获取页面cookie
+    clearCookie: false, // 操作完成后是否清除cookie
     callback: null     // 要执行的回调函数
 }
 
